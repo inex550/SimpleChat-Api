@@ -5,9 +5,10 @@ from sqlalchemy.orm import relationship
 from datetime import datetime
 
 
-chat_users_table = Table('room_users', Base.metadata,
-    Column('chat_id', ForeignKey('chats.id'), primary_key=True),
-    Column('user_id', ForeignKey('users.id'), primary_key=True)
+chat_users_table = Table('chat_users', Base.metadata,
+    Column('id', Integer, primary_key=True),
+    Column('chat_id', ForeignKey('chats.id'), index=True),
+    Column('user_id', ForeignKey('users.id'), index=True)
 )
 
 
