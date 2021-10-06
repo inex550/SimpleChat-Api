@@ -1,2 +1,3 @@
 db.db
 *\__pycache__
+app/config.py
