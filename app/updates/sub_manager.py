@@ -1,9 +1,9 @@
-from typing import Dict, List
+from typing import Dict, List, Optional
 from asyncio import Queue
 
 from ..schemas import Update
 
-
+ 
 class SubManager:
 
     instance: 'SubManager'
@@ -16,6 +16,25 @@ class SubManager:
 
         for queue in queues_list:
             await queue.put(update)
+
+    async def waitQueueUpdates(self, userId, queue: Optional[Queue] = None) -> List[Update]:
+        updates: List[Update] = []
+
+        default_queue = self.getDefaultQueue(userId)
+
+        if queue is None:
+            queue = default_queue
+        else:
+            updates.append(await queue.get())
+
+        for _ in range(queue.qsize()):
+            updates.append(await queue.get())
+
+        if (queue is not default_queue):
+            for _ in range(default_queue.qsize()):
+                await default_queue.get()
+
+        return updates
 
     def getDefaultQueue(self, userId):
         return self._user_queues.setdefault(userId, [Queue()])[0]

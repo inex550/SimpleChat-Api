@@ -1,20 +1,12 @@
 from typing import List, Optional
 
 from pydantic import BaseModel, Field
-
-
-class Message(BaseModel):
-    id:   int
-    sender_id: int
-    chat_id: int
-    text: str = Field(..., example='Привет, друг! :D')
-
-    class Config:
-        orm_mode = True
+from enum import Enum
 
 
 class User(BaseModel):
     id:         int
+    avatar:     str = Field(None, example='user.png')
     username:   str = Field(..., example='Alex123')
 
     class Config:
@@ -30,5 +22,24 @@ class Chat(BaseModel):
         orm_mode = True
 
 
+class Message(BaseModel):
+    id:   int
+    sender_id: int
+    sender: User
+    chat_id: int
+    text: str = Field(..., example='Привет, друг! :D')
+
+    class Config:
+        orm_mode = True
+
+
+class UpdateType(str, Enum):
+    new = 'new'
+    remove = 'remove'
+    change = 'change'
+
+
 class Update(BaseModel):
     message: Optional[Message] = None
+    chat: Optional[Chat] = None
+    type: UpdateType = UpdateType.new

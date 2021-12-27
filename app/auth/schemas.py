@@ -8,8 +8,9 @@ class AuthUser(BaseModel):
 
 class UserIdentifers(BaseModel):
     id:         int
-    username:   str = Field(..., example='Alex123')
-    token:      str = Field(..., example='<token>')
+    token:      str = Field(...,  example='<token>')
+    username:   str = Field(...,  example='Alex123')
+    avatar:     str = Field(None, example='user.png')
 
     class Config:
         orm_mode = True

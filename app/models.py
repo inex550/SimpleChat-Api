@@ -18,6 +18,7 @@ class User(Base):
     id =                Column(Integer, primary_key=True)
     token =             Column(String, nullable=False, unique=True, index=True)
     username =          Column(String, nullable=False, unique=True, index=True)
+    avatar =            Column(String, nullable=True)
     hashed_password =   Column(String, nullable=False)
 
     chats = relationship('Chat', secondary=chat_users_table, back_populates='users')

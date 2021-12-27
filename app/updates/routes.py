@@ -6,28 +6,26 @@ from .. import schemas as global_schemas
 from .. import models as global_models
 from .sub_manager import SubManager
 
-from sqlalchemy.orm import Session
 from fastapi import Depends, WebSocket, WebSocketDisconnect
 from websockets.exceptions import ConnectionClosed
-import asyncio
 import json
 
 
-async def get_queue_updates(queue: asyncio.Queue):
-    updates = [await queue.get()]
+async def send_updates(ws: WebSocket, updates: List[global_schemas.Update]) -> bool:
+    updates_json = json.dumps([update.dict() for update in updates])
 
-    for _ in range(queue.qsize()):
-        updates.append(await queue.get())
-
-    return updates
+    try:
+        await ws.send_text(updates_json)
+        return True
+    except ConnectionClosed:
+        return False
 
 
 @app.get('/getUpdates', response_model=List[global_schemas.Update], tags=['Update'])
 async def get_updates(
     db_user: global_models.User = Depends(utils.user_by_token)
 ):
-    queue = SubManager.instance.getDefaultQueue(db_user.id)
-    return get_queue_updates(queue)
+    return SubManager.instance.waitQueueUpdates(db_user.id)
 
 
 @app.websocket('/getUpdates')
@@ -44,13 +42,13 @@ async def get_updates_ws(
 
         queue = SubManager.instance.newQueue(db_user.id)
 
-        while True:
-            updates = await get_queue_updates(queue)
-            updates_json = json.dumps([update.dict() for update in updates])
+        updates = await SubManager.instance.waitQueueUpdates(db_user.id)
+        await send_updates(ws, updates)
 
-            try:
-                await ws.send_text(updates_json)
-            except ConnectionClosed:
+        while True:
+            updates = await SubManager.instance.waitQueueUpdates(db_user.id, queue)
+            
+            if not await send_updates(ws, updates):
                 break
 
     except WebSocketDisconnect:

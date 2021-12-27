@@ -2,15 +2,12 @@ from app.updates import notifiers
 from typing import List, Optional
 
 from fastapi import Depends, HTTPException
-from fastapi.param_functions import Query
 from sqlalchemy.orm import Session
 
 from . import router, schemas, crud
 from .. import utils
 from .. import schemas as global_schemas
 from .. import models as global_models
-from ..updates import notifiers
-from ..updates.sub_manager import SubManager
 
 
 @router.get('/my', response_model=List[global_schemas.Chat])
@@ -30,7 +27,7 @@ def get_chat_messages(
     messages_filter = db.query(global_models.Message).filter_by(chat_id = chat_id).order_by(global_models.Message.id.desc())
 
     if start is not None:
-        messages_filter = messages_filter.filter_by(id >= start)
+        messages_filter = messages_filter.filter(global_models.Message.id <= start)
 
     if batch is not None:
         messages_filter = messages_filter.limit(batch)
@@ -54,15 +51,12 @@ async def send_message(
     db.add(message)
     db.commit()
 
-    await notifiers.chat_notify(global_schemas.Update(message=message), chat_id, db)
+    await notifiers.chat_notify(global_schemas.Update(message=message, type=global_schemas.UpdateType.new), chat_id, db)
     return message
 
 
-@router.get('/{chat_id}/getUpdates')
-
-
 @router.post('/new', response_model=global_schemas.Chat)
-def craete_chat(
+async def craete_chat(
     new_chat: schemas.NewChat,
     db: Session = Depends(utils.get_db),
     db_user: global_models.User = Depends(utils.user_by_token)
@@ -70,11 +64,13 @@ def craete_chat(
     chat = crud.create_chat(db, new_chat.name)
     crud.create_chat_assotioations(db, chat, new_chat.users, db_user)
 
+    await notifiers.chat_notify(global_schemas.Update(chat=chat, type=global_schemas.UpdateType.new), chat, db)
+
     return chat
 
 
 @router.post('/newPrivate', response_model=global_schemas.Chat)
-def create_private_chat(
+async def create_private_chat(
     new_chat: schemas.NewPrivateChat,
     db: Session = Depends(utils.get_db),
     db_user: global_models.User = Depends(utils.user_by_token)
@@ -90,11 +86,13 @@ def create_private_chat(
     
     crud.create_chat_assotioations(db, chat, [user.id], db_user)
 
+    await notifiers.chat_notify(global_schemas.Update(chat=chat, type=global_schemas.UpdateType.new), chat, db)
+
     return chat
 
 
 @router.delete('/{chat_id}')
-def delete_chat(
+async def delete_chat(
     chat_id: int,
     db: Session = Depends(utils.get_db),
     db_user: global_models.User = Depends(utils.user_by_token)
@@ -106,6 +104,8 @@ def delete_chat(
 
     db.query(global_models.Message).filter_by(chat=chat).delete()
     db.commit()
+
+    await notifiers.chat_notify(global_schemas.Update(chat=chat, type=global_schemas.UpdateType.remove), chat, db)
 
     db.delete(chat)
     db.commit()
